@@ -77,6 +77,7 @@ class SplitTool(object):
         if re.match('\d\w+', nav_data[0]):
             top_k = int(nav_data[0][0])
             nav_data[0] = nav_data[0][1:]
+        # 下面的代码自动将nth-child转换成为nth-of-type，因为BeautifulSoup只支持后者，然而chrome复制下来的是nth-child
         if len(nav_data) == 1:
             while 'nth-child' in nav_data[0]:
                 bf = nav_data[0].split(':nth-child', 1)
@@ -161,9 +162,6 @@ class SplitTool(object):
 
     def open_url(self, url, position=0, title=None):
         self.driver.get(url)
-        # self.driver.set_page_load_timeout(8)
-        # self.driver.set_script_timeout(8)
-        # self.driver.switch_to.frame('main')
         html = self.driver.page_source
         main_page_url = self.driver.current_url
         if not title:
@@ -189,7 +187,6 @@ class SplitTool(object):
                 nav_data = nav_data.split(' ')
             else:
                 nav_data = [nav_data]
-                # nav_data = [nav_data.replace('nth-child', 'nth-of-type')]
         print(nav_data)
         if len(nav_data) == 1:
             self.aim_value = nav_data[0]
@@ -236,20 +233,17 @@ class SplitTool(object):
 
 
 def combine_result_and_remove_data():
-    # import os
-    # fs = os.listdir('split_result')
-    # df = pd.DataFrame()
-    # for f in fs:
-    #     print(f)
-    #     df_t = pd.read_csv('split_result/' + f, engine='python', index_col=False, header=None, encoding='utf-8')
-    #     df = pd.concat([df, df_t], axis=0)
-    #     print(df.shape)
-    # print(df.head(10))
-    # df.to_csv('result_combine.csv', index=None, header=None)
-    df = pd.read_csv('result_combine.csv', index_col=False, header=None)
-    remove_list = ['公开', '文件', '政策法规', '公示', '首页', '关于', '简介', '联系', '互动', '组织机构', '概况', '国务院', '下载', '帮助', '报名']
-
-    for r in remove_list:
+    fs = os.listdir('split_result')
+    df = pd.DataFrame()
+    for f in fs:
+        print(f)
+        df_t = pd.read_csv('split_result/' + f, engine='python', index_col=False, header=None, encoding='utf-8')
+        df = pd.concat([df, df_t], axis=0)
+        print(df.shape)
+    print(df.head(10))
+    # # df.to_csv('result_combine.csv', index=None, header=None)
+    # df = pd.read_csv('result_combine.csv', index_col=False, header=None)
+    for r in REMOVE_LIST:
         df = df[df.iloc[:, 4].apply(lambda x: str(r) not in x)]
     gl = []
     for i in range(len(df)):
@@ -280,9 +274,6 @@ def add_main(df):
 
 def add_main_page():
     df = pd.read_csv('result_remove_rare_symbol.xls')
-    # r_list = ['通知']
-    # for r in r_list:
-    #     df = df[df.iloc[:, 4].apply(lambda x: r not in x)]
     df = df.groupby(2).apply(add_main)
     df.to_csv('result.csv')
 
@@ -293,7 +284,10 @@ URL = 'http://www.sjzhb.gov.cn/'
 U = 'sjzhb.gov.cn'
 NAV_DATA = ['class', 'navbar_box']
 
-PROCESS = True
+REMOVE_LIST = ['公开', '文件', '政策法规', '公示', '首页', '关于', '简介', '联系', '互动', '组织机构', '概况', '国务院', '下载', '帮助', '报名', '通知',
+               '公告']
+
+PROCESS = False
 
 if __name__ == '__main__':
     if PROCESS:
