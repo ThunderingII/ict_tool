@@ -1,0 +1,23 @@
+{
+  "username": "zhangl2017",
+  "password": "psdzhangl2017",
+  "start_position": 1,
+  "passage_title_dict": {
+    "八桂网": "html > div.hb_main > div.hb_main_l > div.hb_block_mix",
+    "华西都市报": "#list",
+    "default": ""
+  },
+  "page_list_dict": {
+    "八桂网": "#pages",
+    "default": ""
+  },
+  "should_js_on_dict": {
+    "default": 0
+  },
+  "config_string_dict": {
+    "中国新闻网.*广西": [
+      "最新新闻"
+    ],
+    "default": []
+  }
+}
