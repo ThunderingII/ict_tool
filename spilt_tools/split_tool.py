@@ -27,10 +27,11 @@ failed_set = set()
 
 
 class SplitTool(object):
-    def __init__(self):
+    def __init__(self, ID):
         self._read_config_info()
         self._init_chrome()
         self.config_load()
+        self.ID = ID
 
     def _read_config_info(self):
         pass
@@ -198,7 +199,7 @@ class SplitTool(object):
     def write2file(self, data, title, main_page_url, u):
         result = []
         for d in data:
-            r = [title, main_page_url, u.split('/')[0], 1, d[1], d[0], '', '', '', '', '', '', '']
+            r = [self.ID, title, main_page_url, u.split('/')[0], 1, d[1], d[0], '', '', '', '', '', '', '']
             result.append(r)
         df = pd.DataFrame(result)
         r_value = [';', ':', '-', '#', '/', '\\', ' > ', '(', ')']
@@ -290,12 +291,15 @@ REMOVE_LIST = ['公开', '文件', '政策法规', '公示', '首页', '关于',
 PROCESS = False
 
 if __name__ == '__main__':
+    # 修改为自己的id
+    ID = 292
+
     if PROCESS:
         combine_result_and_remove_data()
         remove_rare_symbol()
         # add_main_page()
     else:
-        mt = SplitTool()
+        mt = SplitTool(ID)
         while 1:
             try:
                 # 如果为复杂网页，直接请求子网页
