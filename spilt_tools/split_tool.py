@@ -199,7 +199,8 @@ class SplitTool(object):
     def write2file(self, data, title, main_page_url, u):
         result = []
         for d in data:
-            r = [self.ID, title, main_page_url, u.split('/')[0], 1, d[1], d[0], '', '', '', '', '', '', '']
+            # self.ID,
+            r = [title, main_page_url, u.split('/')[0], 1, d[1], d[0], '', '', '', '', '', '', '']
             result.append(r)
         df = pd.DataFrame(result)
         r_value = [';', ':', '-', '#', '/', '\\', ' > ', '(', ')']
