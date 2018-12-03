@@ -79,7 +79,6 @@ class SplitTool(object):
                     if c.name == t:
                         type_index += 1
                     if aim_index == index:
-                        print(c.name)
                         break
                     index += 1
             nav_data = (bf[0] + ':nth-of-type('
@@ -182,15 +181,19 @@ class SplitTool(object):
                                 title = s
         print('title is {}'.format(title))
         if DEBUG:
-            nav_data = NAV_DATA
+            nav_selector = NAV_DATA
         else:
             print('请输入需要拆分导航栏的css selector:\r')
-            nav_data = input()
+            nav_selector = input()
+        self.selector = nav_selector
 
-        return (self._find_a(html, url, title, nav_data, top_k),
+        return (self._find_a(html, url, title, nav_selector, top_k),
                 title, main_page_url, is_complex_page)
 
     def write2file(self, data, title, main_page_url, u):
+        if data is None or len(data) == 0:
+            print(title, self.selector, 'no result')
+            return
         result = []
         for d in data:
             r = [
@@ -201,11 +204,11 @@ class SplitTool(object):
         df = pd.DataFrame(result)
         for r in TITLE_RARE_SYMBOL:
             title = title.replace(r, '')
-            self.aim_value = self.aim_value.replace(r, '')
+            self.selector = self.selector.replace(r, '')
 
         if not os.path.exists('split_result'):
             os.mkdir('split_result')
-        df.to_csv('split_result/' + title + self.aim_value + '.csv',
+        df.to_csv('split_result/' + title + '_' + self.selector + '.csv',
                   index=None, header=None)
 
     def html_split(self, main_url, u):
@@ -260,7 +263,7 @@ def combine_result_and_remove_data():
     df = df[gl]
 
     print('after remove', df.shape)
-    df.insert(0, value=ID)
+    df.insert(0, column='id', value=ID)
     df.to_csv('result_combine_result_and_remove_data.csv', index=None,
               header=None)
 
@@ -271,7 +274,11 @@ def remove_rare_symbol():
         for r in RARE_SYMBOL:
             df.iloc[:, i] = df.iloc[:, i].apply(
                 lambda x: str(x).replace(r, ''))
-    df.to_csv('result_remove_rare_symbol.csv', index=None, header=None)
+    if SAVE_IN_EXCEL:
+        df.to_excel('result_remove_rare_symbol.xls', index=None, header=None,
+                    encoding='gbk')
+    else:
+        df.to_csv('result_remove_rare_symbol.csv', index=None, header=None)
 
 
 def add_main(df):
@@ -309,10 +316,11 @@ TITLE_RARE_SYMBOL = [';', ':', '-', '#', '/', '\\', ' > ', '(', ')']
 # 标题的分隔符
 TITLE_SPLIT_LIST = [',', ' ', '-', '_', '|', '——']
 
-PROCESS = False
+PROCESS = True
 ID = 1
 USE_CHROME = True
 REMOVE_PICTURE_IN_CHROME = True
+SAVE_IN_EXCEL = True
 
 
 def main():
