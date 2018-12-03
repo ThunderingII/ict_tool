@@ -316,7 +316,7 @@ TITLE_RARE_SYMBOL = [';', ':', '-', '#', '/', '\\', ' > ', '(', ')']
 # 标题的分隔符
 TITLE_SPLIT_LIST = [',', ' ', '-', '_', '|', '——']
 
-PROCESS = True
+PROCESS = False
 ID = 1
 USE_CHROME = True
 REMOVE_PICTURE_IN_CHROME = True
