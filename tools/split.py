@@ -109,7 +109,8 @@ class SplitTool(object):
                                 pre_name += (s + '-')
                         if len(l) not in a_level_list:
                             a_level_list.append(len(l))
-                        r.append([c['href'], pre_name + name, len(l)])
+                        url_name = (pre_name + name).replace(' ', '')
+                        r.append([c['href'], url_name, len(l)])
                     else:
                         t = list(l)
                         t.append(name)
@@ -152,6 +153,9 @@ class SplitTool(object):
         top_k = 10
         position = 0
         is_complex_page = False
+        more_text = ''
+        html = self.driver.page_source
+        main_page_url = self.driver.current_url
         print('请输入配置参数(c,tp,tk,title):\r')
         params = input().split(' ')
         if params[0]:
@@ -164,9 +168,14 @@ class SplitTool(object):
                     title = p[5:]
                 elif p.startswith('c'):
                     is_complex_page = True
+                elif p.startswith('more'):
+                    more_text = p[4:]
+                    is_complex_page = True
+                elif p.startswith('ok'):
+                    return (
+                        [[main_page_url, title, 1]],
+                        title, main_page_url, is_complex_page)
 
-        html = self.driver.page_source
-        main_page_url = self.driver.current_url
         if not title:
             title = self.driver.title
             for sc in TITLE_SPLIT_LIST:
@@ -186,9 +195,12 @@ class SplitTool(object):
             print('请输入需要拆分导航栏的css selector:\r')
             nav_selector = input()
         self.selector = nav_selector
-
-        return (self._find_a(html, url, title, nav_selector, top_k),
-                title, main_page_url, is_complex_page)
+        pt = title
+        if more_text:
+            pt = title + '-' + more_text
+        return (
+            self._find_a(html, url, pt, nav_selector, top_k),
+            title, main_page_url, is_complex_page)
 
     def write2file(self, data, title, main_page_url, u):
         if data is None or len(data) == 0:
@@ -269,7 +281,8 @@ def combine_result_and_remove_data():
 
 
 def remove_rare_symbol():
-    df = pd.read_csv('result_combine_result_and_remove_data.csv')
+    df = pd.read_csv('result_combine_result_and_remove_data.csv',
+                     index_col=False, header=None)
     for i in [1, 5]:
         for r in RARE_SYMBOL:
             df.iloc[:, i] = df.iloc[:, i].apply(
@@ -278,7 +291,8 @@ def remove_rare_symbol():
         df.to_excel('result_remove_rare_symbol.xls', index=None, header=None,
                     encoding='gbk')
     else:
-        df.to_csv('result_remove_rare_symbol.csv', index=None, header=None)
+        df.to_csv('result_remove_rare_symbol.csv', encoding='gbk', index=None,
+                  header=None)
 
 
 def add_main(df):
@@ -310,7 +324,7 @@ REMOVE_LIST = [
     '组织机构', '概况', '国务院', '下载', '帮助', '报名', '通知', '公告'
 ]
 # 内容罕见字符
-RARE_SYMBOL = ['\r', '\n', ' ', '?', '!', '！']
+RARE_SYMBOL = ['\r', '\n', ' ', '?', '!', '！', '-更多', '-more']
 # 标题罕见字符
 TITLE_RARE_SYMBOL = [';', ':', '-', '#', '/', '\\', ' > ', '(', ')']
 # 标题的分隔符
