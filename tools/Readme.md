@@ -2,7 +2,7 @@
 ## 更新说明
 20181203 修改了原项目，增加了功能，完善了逻辑
 
-20181203 非windows系统请从https://chromedriver.storage.googleapis.com/index.html?path=2.44/下载 driver
+20181203 非windows系统请从https://chromedriver.storage.googleapis.com/index.html?path=2.44/ 下载 driver
 
 20181128 增加了ID设置，在main函数上面几行
 
