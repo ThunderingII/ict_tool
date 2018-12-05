@@ -239,6 +239,8 @@ def combine_result_and_remove_data():
     df = pd.DataFrame()
     for f in fs:
         print(f)
+        if os.path.getsize('./split_result/' + f) == 0:
+            continue
         df_t = pd.read_csv('split_result/' + f, engine='python', index_col=False, header=None, encoding='utf-8')
         df = pd.concat([df, df_t], axis=0)
         print(df.shape)
