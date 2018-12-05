@@ -261,6 +261,8 @@ def combine_result_and_remove_data():
     fs = os.listdir('split_result')
     df = pd.DataFrame()
     for f in fs:
+        if 'DS_Store' in f:
+            continue
         print(f)
         try:
             df_t = pd.read_csv('split_result/' + f, engine='python',
