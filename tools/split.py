@@ -331,19 +331,23 @@ TITLE_RARE_SYMBOL = [';', ':', '-', '#', '/', '\\', ' > ', '(', ')']
 TITLE_SPLIT_LIST = [',', ' ', '-', '_', '|', '——']
 
 PROCESS = False
-ID = 1
+ID = 277
 USE_CHROME = True
 REMOVE_PICTURE_IN_CHROME = True
 SAVE_IN_EXCEL = True
 
 
 def main():
+    print("开启抓取模式，输入其他字符；开启合并模式，输入1：")
+    mode = input()
+    PROCESS = True if mode == '1' else False
     if PROCESS:
         combine_result_and_remove_data()
         remove_rare_symbol()
         # add_main_page()
     else:
         mt = SplitTool()
+        lasturl = ''
         while True:
             try:
                 if DEBUG:
@@ -352,13 +356,17 @@ def main():
                 else:
                     print('请输入url(不带www和http等字符，如果不需要程序追加www，'
                           '请在url前面加"N"，例如"Nbaidu.com"):\r')
+                    print('是否继续上一url? 若是则输入?字符')
                     url = input()
-                    u = url.split('/')[0]
-                    if u.startswith('N'):
-                        u = u[1:]
-                        url = 'http://' + url[1:]
+                    if url == '?':
+                        url = lasturl
                     else:
-                        url = 'http://www.' + url
+                        u = url.split('/')[0]
+                        if u.startswith('N'):
+                            u = u[1:]
+                            url = 'http://' + url[1:]
+                        else:
+                            url = 'http://www.' + url
                 mt.html_split(url, u)
                 if DEBUG:
                     print('end debug')
