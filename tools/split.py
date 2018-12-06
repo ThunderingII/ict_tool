@@ -258,7 +258,11 @@ class SplitTool(object):
 
 
 def combine_result_and_remove_data():
-    fs = os.listdir('split_result')
+    try:
+        fs = os.listdir('split_result')
+    except FileNotFoundError:
+        print('未找到要合并的文件，请先做拆分再合并')
+        exit(-1)
     df = pd.DataFrame()
     for f in fs:
         if 'DS_Store' in f:
