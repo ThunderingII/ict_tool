@@ -235,20 +235,24 @@ class SplitTool(object):
 
 
 def combine_result_and_remove_data():
-    fs = os.listdir('split_result')
+    fs = os.listdir('./split_result')
     df = pd.DataFrame()
     for f in fs:
         print(f)
         if os.path.getsize('./split_result/' + f) == 0:
             continue
-        df_t = pd.read_csv('split_result/' + f, engine='python', index_col=False, header=None, encoding='utf-8')
+        df_t = pd.read_csv('./split_result/' + f, engine='python', index_col=False, header=None, encoding='utf-8')
         df = pd.concat([df, df_t], axis=0)
         print(df.shape)
     print(df.head(10))
     # # df.to_csv('result_combine.csv', index=None, header=None)
     # df = pd.read_csv('result_combine.csv', index_col=False, header=None)
     for r in REMOVE_LIST:
-        df = df[df.iloc[:, 4].apply(lambda x: str(r) not in x)]
+        try:
+            df = df[df.iloc[:, 4].apply(lambda x: str(r) not in x)]
+        except:
+            print(df.columns)
+
     gl = []
     for i in range(len(df)):
         gl.append(df.iloc[i, 2] in df.iloc[i, 5])
@@ -295,14 +299,17 @@ PROCESS = False
 
 if __name__ == '__main__':
     # 修改为自己的id
-    ID = 292
-
+    ID = 277
+    print("开启抓取模式，输入其他字符；开启合并模式，输入1：")
+    mode = input()
+    PROCESS = True if mode == '1' else False
     if PROCESS:
         combine_result_and_remove_data()
         remove_rare_symbol()
         # add_main_page()
     else:
         mt = SplitTool(ID)
+        lasturl=''
         while 1:
             try:
                 # 如果为复杂网页，直接请求子网页
@@ -314,18 +321,24 @@ if __name__ == '__main__':
                     u = U
                 else:
                     print('请输入url(不带www和http等字符):\r')
+                    print('是否继续上一url? 若是则输入?字符')
                     url = input()
+
                     if url.startswith('C'):
                         url = url[1:]
                         complex = True
                     if ' ' in url:
                         url, position = url.split(' ')
-                    u = url.split('/')[0]
-                    if u.startswith('1'):
-                        u = u[1:]
-                        url = 'http://' + url[1:]
+                    if url == '?':
+                        url = lasturl
                     else:
-                        url = 'http://www.' + url
+                        u = url.split('/')[0]
+                        if u.startswith('1'):
+                            u = u[1:]
+                            url = 'http://' + url[1:]
+                        else:
+                            url = 'http://www.' + url
+                    lasturl = url
                 mt.html_split(url, u, int(position), complex)
                 if DEBUG:
                     print('end debug')
