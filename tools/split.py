@@ -261,12 +261,21 @@ def combine_result_and_remove_data():
     fs = os.listdir('split_result')
     df = pd.DataFrame()
     for f in fs:
+        if 'DS_Store' in f:
+            continue
         print(f)
-        df_t = pd.read_csv('split_result/' + f, engine='python',
-                           index_col=False, header=None, encoding='utf-8')
-        df = pd.concat([df, df_t], axis=0)
+        try:
+            df_t = pd.read_csv('split_result/' + f, engine='python',
+                               index_col=False, header=None, encoding='utf-8')
+        except Exception as e:
+            print(e)
+            df_t = None
+        if df_t is not None:
+            df = pd.concat([df, df_t], axis=0)
         print(df.shape)
     print(df.head(10))
+    if len(df) == 0:
+        return
     for r in REMOVE_LIST:
         df = df[df.iloc[:, 4].apply(lambda x: str(r) not in x)]
     gl = []
@@ -281,18 +290,19 @@ def combine_result_and_remove_data():
 
 
 def remove_rare_symbol():
-    df = pd.read_csv('result_combine_result_and_remove_data.csv',
-                     index_col=False, header=None)
-    for i in [1, 5]:
-        for r in RARE_SYMBOL:
-            df.iloc[:, i] = df.iloc[:, i].apply(
-                lambda x: str(x).replace(r, ''))
-    if SAVE_IN_EXCEL:
-        df.to_excel('result_remove_rare_symbol.xls', index=None, header=None,
-                    encoding='gbk')
-    else:
-        df.to_csv('result_remove_rare_symbol.csv', encoding='gbk', index=None,
-                  header=None)
+    if os.path.exists('result_combine_result_and_remove_data.csv'):
+        df = pd.read_csv('result_combine_result_and_remove_data.csv',
+                         index_col=False, header=None)
+        for i in [1, 5]:
+            for r in RARE_SYMBOL:
+                df.iloc[:, i] = df.iloc[:, i].apply(
+                    lambda x: str(x).replace(r, ''))
+        if SAVE_IN_EXCEL:
+            df.to_excel('result_remove_rare_symbol.xls', index=None,
+                        header=None, encoding='gbk')
+        else:
+            df.to_csv('result_remove_rare_symbol.csv', encoding='gbk',
+                      index=None, header=None)
 
 
 def add_main(df):
@@ -324,7 +334,7 @@ REMOVE_LIST = [
     '组织机构', '概况', '国务院', '下载', '帮助', '报名', '通知', '公告'
 ]
 # 内容罕见字符
-RARE_SYMBOL = ['\r', '\n', ' ', '?', '!', '！', '-更多', '-more']
+RARE_SYMBOL = ['\r', '\n', ' ', '?', '!', '！', '-更多', '-more', '>']
 # 标题罕见字符
 TITLE_RARE_SYMBOL = [';', ':', '-', '#', '/', '\\', ' > ', '(', ')']
 # 标题的分隔符
@@ -333,8 +343,8 @@ TITLE_SPLIT_LIST = [',', ' ', '-', '_', '|', '——']
 PROCESS = False
 ID = 277
 USE_CHROME = True
-REMOVE_PICTURE_IN_CHROME = True
-SAVE_IN_EXCEL = True
+REMOVE_PICTURE_IN_CHROME = False
+SAVE_IN_EXCEL = False
 
 
 def main():
