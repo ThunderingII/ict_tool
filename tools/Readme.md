@@ -24,7 +24,7 @@
 8. 运行源代码得到最后的excel
 
 ### 2.2 基本使用
-1. 先输入url，url一定是不带www、http等的纯净url，默认情况下脚本自动添加http://www. ，**如果不希望脚本添加，请在url前面添加数字N**，例如：**Nxmtfj.gov.cn**
+1. 先输入url，url一定是不带www、http等的纯净url，默认情况下脚本自动添加http://www. ，**如果不希望脚本添加，请在url前面添加字母N**，例如xmtfj.gov.cn不需要www：**Nxmtfj.gov.cn**
 2. 输入url之后等一下（有时很久，看网络），会提示输入配置，详细配置见下文
 2. 配置输入后会提示输入nav的路径，这个时候粘贴nav的css selector
 > 导航栏的css selector路径获取，chrome下面审查元素，选中导航栏元素，右键调出菜单，选择Copy->Copy selector，如果你自己会写直接写也是可以的
