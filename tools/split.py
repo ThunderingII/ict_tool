@@ -18,8 +18,6 @@ class SplitTool(object):
         self._read_config_info()
         self._init_chrome()
         self._config_load()
-        self.default_css_selector = ''
-        self.set_default_css_selector = False
 
     def _read_config_info(self):
         pass
@@ -64,13 +62,11 @@ class SplitTool(object):
                 selector = tag_dict[key]
         return selector
 
-    def _find_a(self, html, main_url, main_name, nav_data, top_k=9):
-        bs = BeautifulSoup(html, 'html.parser')
-        queue = []
+    def _change_selector_2_bs(self, bs, css_selector):
         # 下面的代码自动将nth-child转换成为nth-of-type，
         # 因为BeautifulSoup只支持后者，然而chrome复制下来的是nth-child
-        while 'nth-child' in nav_data:
-            bf = nav_data.split(':nth-child', 1)
+        while 'nth-child' in css_selector:
+            bf = css_selector.split(':nth-child', 1)
             f, t = bf[0].rsplit(' > ', 1)
             type_index = 0
             aim_index = int(
@@ -83,14 +79,20 @@ class SplitTool(object):
                     if aim_index == index:
                         break
                     index += 1
-            nav_data = (bf[0] + ':nth-of-type('
-                        + str(type_index) + bf[1][bf[1].find(')'):])
-        print('css:', nav_data)
-        bl = bs.select(nav_data)
+            css_selector = (bf[0] + ':nth-of-type('
+                            + str(type_index) + bf[1][bf[1].find(')'):])
+        return css_selector
+
+    def _find_a(self, html, main_url, main_name, nav_selector, top_k=9):
+        bs = BeautifulSoup(html, 'html.parser')
+        queue = []
+        nav_selector = self._change_selector_2_bs(bs, nav_selector)
+        print('css:', nav_selector)
+        bl = bs.select(nav_selector)
         if not bl:
-            print(f'-----did not find aim element:{nav_data}-----')
+            print(f'-----did not find aim element:{nav_selector}-----')
         else:
-            queue.append((bs.select(nav_data)[0], [main_name]))
+            queue.append((bs.select(nav_selector)[0], [main_name]))
         r = []
         a_level_list = []
         while queue:
@@ -128,8 +130,20 @@ class SplitTool(object):
                 l[0] = (main_url.split('//')[0] + '//'
                         + main_url.split('//')[1].split('/')[0] + l[0])
             elif not l[0].startswith('http'):
-                l[0] = main_url + '/' + l[0]
+                # 有些网站会有index.php，asp等结尾，需要去掉
+                if main_url.endswith('/'):
+                    l[0] = main_url + l[0]
+                else:
+                    url_remove_list = ['.asp', '.jsp', '.php', '?', '=',
+                                       '.html']
+                    end_index = len(main_url)
+                    for s in url_remove_list:
+                        if s in main_url:
+                            end_index = main_url.rindex('/')
+                            break
+                    l[0] = main_url[:end_index] + '/' + l[0]
         self._contain_remove(rr)
+
         return rr
 
     def _contain_remove(self, aim):
@@ -150,8 +164,8 @@ class SplitTool(object):
             print(s, 'get int value error', e)
         return r
 
-    #add default css selector in the same type of pages
-    #create by rhluo 2018-12-10
+    # add default css selector in the same type of pages
+    # create by rhluo 2018-12-10
     def open_url(self, url, title=None, global_css_selector=None):
         self.driver.get(url)
         top_k = 10
@@ -163,13 +177,11 @@ class SplitTool(object):
         html = self.driver.page_source
         main_page_url = self.driver.current_url
         params = [[]]
-        #todo
         if not global_css_selector:
-            print('请输入配置参数(c,tp,tk,title,css):\r')
+            print('请输入配置参数(c,tp,tk,title,css,ok,more)，默认直接回车:\r')
             params = input().split(' ')
         if params[0]:
             for p in params:
-                #print(p)
                 if p.startswith('tp'):
                     position = self._get_value(p[2:])
                 elif p.startswith('tk'):
@@ -177,7 +189,6 @@ class SplitTool(object):
                 elif p.startswith('title'):
                     title = p[5:]
                 elif p.startswith('css'):
-                    #print("css set success !!\r")
                     set_default_css_selector = True
                 elif p.startswith('c'):
                     is_complex_page = True
@@ -190,8 +201,9 @@ class SplitTool(object):
                         title, main_page_url, is_complex_page)
 
         if set_default_css_selector:
-            print('请输入默认的全局css selector:\r')
-            default_css_selector = input()
+            while not default_css_selector:
+                print('请输入默认的全局css selector:\r')
+                default_css_selector = input()
 
         if not title:
             title = self.driver.title
@@ -206,16 +218,18 @@ class SplitTool(object):
                             if len(s) > len(title):
                                 title = s
         print('title is {}'.format(title))
+        nav_selector = ''
         if DEBUG:
             nav_selector = NAV_DATA
         elif global_css_selector:
             nav_selector = global_css_selector
         else:
-            print('请输入需要拆分导航栏的css selector:\r')
-            nav_selector = input()
+            # 防止多余的回车
+            while not nav_selector:
+                print('请输入需要拆分导航栏的css selector:\r')
+                nav_selector = input()
         self.selector = nav_selector
         pt = title
-
         if more_text:
             pt = title + '-' + more_text
 
@@ -225,7 +239,7 @@ class SplitTool(object):
                 d.append(default_css_selector)
             else:
                 d.append(None)
-        return (data,title, main_page_url, is_complex_page)
+        return (data, title, main_page_url, is_complex_page)
 
     def write2file(self, data, title, main_page_url, u):
         if data is None or len(data) == 0:
@@ -257,13 +271,13 @@ class SplitTool(object):
                 d = data.pop()
                 if u in d[0]:
                     try:
-                        #print(d[3])
                         if NOT_OPEN_WORD_IN_REMOVE_LIST:
                             if d[1].split('-')[-1] in REMOVE_LIST:
                                 print(f'title {d[1]} in remove list! Jump it!')
                                 continue
                         print(f'begin to load {d[1]} url:{d[0]}')
-                        dd, _, _, is_complex_page = self.open_url(d[0], d[1], d[3])
+                        dd, _, _, is_complex_page = self.open_url(d[0], d[1],
+                                                                  d[3])
 
                         if is_complex_page:
                             data.extend(dd)
@@ -275,16 +289,8 @@ class SplitTool(object):
                     except Exception as e:
                         print(e)
             data = dl
-
-        # if self.set_default_css_selector:
-        #     self.set_default_css_selector = False
-        #     self.default_css_selector = ''
         self.write2file(data, title, main_page_url, u)
         print('{} complete! total size:{}'.format(title, len(data)))
-
-    def print_line(self, lines=1):
-        for i in range(lines):
-            print('-' * 50)
 
 
 def combine_result_and_remove_data():
@@ -333,9 +339,9 @@ def remove_rare_symbol():
                     lambda x: str(x).replace(r, ''))
         if SAVE_IN_EXCEL:
             df.to_excel('result_remove_rare_symbol.xls', index=None,
-                        header=None, encoding='utf-8')
+                        header=None, encoding='gbk')
         else:
-            df.to_csv('result_remove_rare_symbol.csv', encoding='utf-8',
+            df.to_csv('result_remove_rare_symbol.csv', encoding='gbk',
                       index=None, header=None)
 
 
@@ -365,8 +371,8 @@ PATH_EDGE_DRIVE = '../driver/MicrosoftWebDriver.exe'
 NOT_OPEN_WORD_IN_REMOVE_LIST = True
 REMOVE_LIST = [
     '公开', '文件', '政策法规', '公示', '首页', '关于', '简介', '联系', '互动',
-    '组织机构', '概况', '国务院', '下载', '帮助', '报名', '通知', '公告', '领导', '机构',
-    '百科', '视频', '图片', '支部', '群众来信', '学习园地'
+    '组织机构', '概况', '国务院', '下载', '帮助', '报名', '通知', '公告', '领导',
+    '百科', '视频', '支部', '群众来信', '机构', '学习园地'
 ]
 # 内容罕见字符
 RARE_SYMBOL = ['\r', '\n', ' ', '?', '!', '！', '-更多', '-more', '>']
@@ -383,28 +389,32 @@ SAVE_IN_EXCEL = False
 
 
 def main():
-    print("开启抓取模式，输入其他字符；开启合并模式，输入1：")
+    print("开启抓取模式，请直接回车；开启合并模式，输入1：")
     mode = input()
-    PROCESS = True if mode == '1' else False
+    PROCESS = mode == '1'
     if PROCESS:
         combine_result_and_remove_data()
         remove_rare_symbol()
         # add_main_page()
     else:
         mt = SplitTool()
-        lasturl = ''
+        last_url = ''
+        u = None
         while True:
             try:
+                url = ''
                 if DEBUG:
                     url = URL
                     u = U
                 else:
-                    print('请输入url(不带www和http等字符，如果不需要程序追加www，'
-                          '请在url前面加"N"，例如"Nbaidu.com"):\r')
-                    print('是否继续上一url? 若是则输入?字符')
-                    url = input()
+                    # 防止用户多输入回车
+                    while not url:
+                        print('请输入url，继续上一url则输入"?"'
+                              '(不带www和http等字符，如果不需要程序追加www，'
+                              '请在url前面加"N"，例如"Nbaidu.com"):\r')
+                        url = input()
                     if url == '?':
-                        url = lasturl
+                        url = last_url
                     else:
                         u = url.split('/')[0]
                         if u.startswith('N'):
@@ -413,13 +423,13 @@ def main():
                         else:
                             url = 'http://www.' + url
                 mt.html_split(url, u)
-                lasturl = url
+                last_url = url
                 if DEBUG:
                     print('end debug')
                     break
             except Exception as e:
-                traceback.print_exc()
-                print('-' * 50)
+                # traceback.print_exc()
+                print('-' * 25, str(e), '-' * 25)
     # mt.driver.close()
 
 
