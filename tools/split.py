@@ -382,6 +382,7 @@ def main():
                         else:
                             url = 'http://www.' + url
                 mt.html_split(url, u)
+                lasturl = url
                 if DEBUG:
                     print('end debug')
                     break
