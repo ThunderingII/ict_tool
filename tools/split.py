@@ -18,6 +18,8 @@ class SplitTool(object):
         self._read_config_info()
         self._init_chrome()
         self._config_load()
+        self.default_css_selector = ''
+        self.set_default_css_selector = False
 
     def _read_config_info(self):
         pass
@@ -148,24 +150,35 @@ class SplitTool(object):
             print(s, 'get int value error', e)
         return r
 
-    def open_url(self, url, title=None):
+    #add default css selector in the same type of pages
+    #create by rhluo 2018-12-10
+    def open_url(self, url, title=None, global_css_selector=None):
         self.driver.get(url)
         top_k = 10
         position = 0
         is_complex_page = False
+        default_css_selector = ''
+        set_default_css_selector = False
         more_text = ''
         html = self.driver.page_source
         main_page_url = self.driver.current_url
-        print('请输入配置参数(c,tp,tk,title):\r')
-        params = input().split(' ')
+        params = [[]]
+        #todo
+        if not global_css_selector:
+            print('请输入配置参数(c,tp,tk,title,css):\r')
+            params = input().split(' ')
         if params[0]:
             for p in params:
+                #print(p)
                 if p.startswith('tp'):
                     position = self._get_value(p[2:])
                 elif p.startswith('tk'):
                     top_k = self._get_value(p[2:])
                 elif p.startswith('title'):
                     title = p[5:]
+                elif p.startswith('css'):
+                    #print("css set success !!\r")
+                    set_default_css_selector = True
                 elif p.startswith('c'):
                     is_complex_page = True
                 elif p.startswith('more'):
@@ -173,8 +186,12 @@ class SplitTool(object):
                     is_complex_page = True
                 elif p.startswith('ok'):
                     return (
-                        [[main_page_url, title, 1]],
+                        [[main_page_url, title, 1, None]],
                         title, main_page_url, is_complex_page)
+
+        if set_default_css_selector:
+            print('请输入默认的全局css selector:\r')
+            default_css_selector = input()
 
         if not title:
             title = self.driver.title
@@ -191,16 +208,24 @@ class SplitTool(object):
         print('title is {}'.format(title))
         if DEBUG:
             nav_selector = NAV_DATA
+        elif global_css_selector:
+            nav_selector = global_css_selector
         else:
             print('请输入需要拆分导航栏的css selector:\r')
             nav_selector = input()
         self.selector = nav_selector
         pt = title
+
         if more_text:
             pt = title + '-' + more_text
-        return (
-            self._find_a(html, url, pt, nav_selector, top_k),
-            title, main_page_url, is_complex_page)
+
+        data = self._find_a(html, url, pt, nav_selector, top_k)
+        for d in data:
+            if set_default_css_selector:
+                d.append(default_css_selector)
+            else:
+                d.append(None)
+        return (data,title, main_page_url, is_complex_page)
 
     def write2file(self, data, title, main_page_url, u):
         if data is None or len(data) == 0:
@@ -232,12 +257,13 @@ class SplitTool(object):
                 d = data.pop()
                 if u in d[0]:
                     try:
+                        #print(d[3])
                         if NOT_OPEN_WORD_IN_REMOVE_LIST:
                             if d[1].split('-')[-1] in REMOVE_LIST:
                                 print(f'title {d[1]} in remove list! Jump it!')
                                 continue
                         print(f'begin to load {d[1]} url:{d[0]}')
-                        dd, _, _, is_complex_page = self.open_url(d[0], d[1])
+                        dd, _, _, is_complex_page = self.open_url(d[0], d[1], d[3])
 
                         if is_complex_page:
                             data.extend(dd)
@@ -249,6 +275,10 @@ class SplitTool(object):
                     except Exception as e:
                         print(e)
             data = dl
+
+        # if self.set_default_css_selector:
+        #     self.set_default_css_selector = False
+        #     self.default_css_selector = ''
         self.write2file(data, title, main_page_url, u)
         print('{} complete! total size:{}'.format(title, len(data)))
 
@@ -303,9 +333,9 @@ def remove_rare_symbol():
                     lambda x: str(x).replace(r, ''))
         if SAVE_IN_EXCEL:
             df.to_excel('result_remove_rare_symbol.xls', index=None,
-                        header=None, encoding='gbk')
+                        header=None, encoding='utf-8')
         else:
-            df.to_csv('result_remove_rare_symbol.csv', encoding='gbk',
+            df.to_csv('result_remove_rare_symbol.csv', encoding='utf-8',
                       index=None, header=None)
 
 
@@ -335,7 +365,8 @@ PATH_EDGE_DRIVE = '../driver/MicrosoftWebDriver.exe'
 NOT_OPEN_WORD_IN_REMOVE_LIST = True
 REMOVE_LIST = [
     '公开', '文件', '政策法规', '公示', '首页', '关于', '简介', '联系', '互动',
-    '组织机构', '概况', '国务院', '下载', '帮助', '报名', '通知', '公告'
+    '组织机构', '概况', '国务院', '下载', '帮助', '报名', '通知', '公告', '领导', '机构',
+    '百科', '视频', '图片', '支部', '群众来信', '学习园地'
 ]
 # 内容罕见字符
 RARE_SYMBOL = ['\r', '\n', ' ', '?', '!', '！', '-更多', '-more', '>']
