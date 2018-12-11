@@ -8,19 +8,12 @@ from selenium import webdriver
 from bs4 import BeautifulSoup
 from bs4 import Tag
 
-from mark_tool import config_util
-
 failed_set = set()
 
 
 class SplitTool(object):
     def __init__(self):
-        self._read_config_info()
         self._init_chrome()
-        self._config_load()
-
-    def _read_config_info(self):
-        pass
 
     def _init_chrome(self):
         # 使用edge，bug更少
@@ -37,33 +30,11 @@ class SplitTool(object):
             self.driver = webdriver.Edge(
                 executable_path=PATH_EDGE_DRIVE)
 
-    def _refreshPage(self):
-        oldUrl = self.driver.current_url
-        try:
-            self.driver.refresh()
-        except Exception as e:
-            pass
-        if oldUrl != self.driver.current_url:
-            pass
-
     def _quit(self):
         self.driver.quit()
 
-    def _config_load(self, config_file='config.json'):
-        self.jcu = config_util.JsonConfigUtil(config_file)
-        self.start_position = self.jcu.get('start_position')
-
-    def _get_tag_value(self, dict_name, tag_name):
-        tag_dict = self.jcu.get(dict_name)
-        selector = tag_dict['default']
-        for key in tag_dict:
-            full_p = '.*' + key + '.*'
-            if re.match(full_p, tag_name) is not None:
-                selector = tag_dict[key]
-        return selector
-
     def _change_selector_2_bs(self, bs, css_selector):
-        # 下面的代码自动将nth-child转换成为nth-of-type，
+        # 下面的代码主要是修改css selector的，自动将nth-child转换成为nth-of-type，
         # 因为BeautifulSoup只支持后者，然而chrome复制下来的是nth-child
         while 'nth-child' in css_selector:
             bf = css_selector.split(':nth-child', 1)
@@ -83,16 +54,34 @@ class SplitTool(object):
                             + str(type_index) + bf[1][bf[1].find(')'):])
         return css_selector
 
-    def _find_a(self, html, main_url, main_name, nav_selector, top_k=9):
-        bs = BeautifulSoup(html, 'html.parser')
-        queue = []
-        nav_selector = self._change_selector_2_bs(bs, nav_selector)
-        print('css:', nav_selector)
-        bl = bs.select(nav_selector)
-        if not bl:
-            print(f'-----did not find aim element:{nav_selector}-----')
-        else:
-            queue.append((bs.select(nav_selector)[0], [main_name]))
+    def _page_url_rewrite(self, main_url, r, top_k_a_level):
+        # 重写url
+        url_list = []
+        for l in r:
+            if l[2] in top_k_a_level:
+                url_list.append(l)
+            if l[0].startswith('//'):
+                l[0] = 'http:' + l[0]
+            elif l[0].startswith('/'):
+                l[0] = (main_url.split('//')[0] + '//'
+                        + main_url.split('//')[1].split('/')[0] + l[0])
+            elif not l[0].startswith('http'):
+                # 有些网站会有index.php，asp等结尾，需要去掉
+                if main_url.endswith('/'):
+                    l[0] = main_url + l[0]
+                else:
+                    url_remove_list = ['.asp', '.jsp', '.php', '?', '=',
+                                       '.html']
+                    end_index = len(main_url)
+                    for s in url_remove_list:
+                        if s in main_url:
+                            end_index = main_url.rindex('/')
+                            break
+                    l[0] = main_url[:end_index] + '/' + l[0]
+        return url_list
+
+    def _bfs_get_a(self, queue):
+        # 通过广度优先搜索去寻找a标签
         r = []
         a_level_list = []
         while queue:
@@ -114,39 +103,16 @@ class SplitTool(object):
                         if len(l) not in a_level_list:
                             a_level_list.append(len(l))
                         url_name = (pre_name + name).replace(' ', '')
-                        r.append([c['href'], url_name, len(l)])
+                        # url,page title,level index,global css selector
+                        r.append([c['href'], url_name, len(l), None])
                     else:
                         t = list(l)
                         t.append(name)
                         queue.append((c, t))
-        rr = []
-        top_k_a_level = a_level_list[:top_k]
-        for l in r:
-            if l[2] in top_k_a_level:
-                rr.append(l)
-            if l[0].startswith('//'):
-                l[0] = 'http:' + l[0]
-            elif l[0].startswith('/'):
-                l[0] = (main_url.split('//')[0] + '//'
-                        + main_url.split('//')[1].split('/')[0] + l[0])
-            elif not l[0].startswith('http'):
-                # 有些网站会有index.php，asp等结尾，需要去掉
-                if main_url.endswith('/'):
-                    l[0] = main_url + l[0]
-                else:
-                    url_remove_list = ['.asp', '.jsp', '.php', '?', '=',
-                                       '.html']
-                    end_index = len(main_url)
-                    for s in url_remove_list:
-                        if s in main_url:
-                            end_index = main_url.rindex('/')
-                            break
-                    l[0] = main_url[:end_index] + '/' + l[0]
-        self._contain_remove(rr)
-
-        return rr
+        return r, a_level_list
 
     def _contain_remove(self, aim):
+        # 判断上下级url是否有包含关系，删除被包含的url
         r_list = []
         for i in range(len(aim)):
             for j in range(len(aim)):
@@ -156,7 +122,25 @@ class SplitTool(object):
         for i in r_list:
             aim.remove(i)
 
+    def _find_a(self, html, main_url, main_name, nav_selector, top_k=9):
+        bs = BeautifulSoup(html, 'html.parser')
+        queue = []
+        nav_selector = self._change_selector_2_bs(bs, nav_selector)
+        print('css:', nav_selector)
+        bl = bs.select(nav_selector)
+        if not bl:
+            print(f'-----did not find aim element:{nav_selector}-----')
+        else:
+            queue.append((bs.select(nav_selector)[0], [main_name]))
+        a_list, a_level_list = self._bfs_get_a(queue)
+        top_k_a_level = a_level_list[:top_k]
+        a_after_rewrite_list = self._page_url_rewrite(main_url, a_list,
+                                                      top_k_a_level)
+        self._contain_remove(a_after_rewrite_list)
+        return a_after_rewrite_list
+
     def _get_value(self, s, default=0):
+        # 获取 string 的整数值
         r = default
         try:
             r = int(s)
@@ -173,9 +157,11 @@ class SplitTool(object):
         is_complex_page = False
         default_css_selector = ''
         set_default_css_selector = False
+        iframe_index = -1
         more_text = ''
-        html = self.driver.page_source
+
         main_page_url = self.driver.current_url
+
         params = [[]]
         if not global_css_selector:
             print('请输入配置参数(c,tp,tk,title,css,ok,more)，默认直接回车:\r')
@@ -183,19 +169,30 @@ class SplitTool(object):
         if params[0]:
             for p in params:
                 if p.startswith('tp'):
+                    # title position,配置title split所取得第几个字符串作为title
+                    # 从1 开始
                     position = self._get_value(p[2:])
                 elif p.startswith('tk'):
+                    # top k配置,防止程序url 解析过深
                     top_k = self._get_value(p[2:])
+                elif p.startswith('iframe'):
+                    # 解析到iframe
+                    iframe_index = self._get_value(p[6:])
                 elif p.startswith('title'):
+                    # 直接设置当前网页得title
                     title = p[5:]
                 elif p.startswith('css'):
+                    # 设置当前页面下所有子页面的 css selector
                     set_default_css_selector = True
                 elif p.startswith('c'):
+                    # 配置当前网站为复杂网站
                     is_complex_page = True
                 elif p.startswith('more'):
+                    # 从 更多 等关键字打开网站
                     more_text = p[4:]
                     is_complex_page = True
                 elif p.startswith('ok'):
+                    # 直接认为当前页面是所需页面
                     return (
                         [[main_page_url, title, 1, None]],
                         title, main_page_url, is_complex_page)
@@ -204,7 +201,6 @@ class SplitTool(object):
             while not default_css_selector:
                 print('请输入默认的全局css selector:\r')
                 default_css_selector = input()
-
         if not title:
             title = self.driver.title
             for sc in TITLE_SPLIT_LIST:
@@ -218,6 +214,9 @@ class SplitTool(object):
                             if len(s) > len(title):
                                 title = s
         print('title is {}'.format(title))
+
+        if iframe_index >= 0:
+            self.driver.switch_to.frame(iframe_index)
         nav_selector = ''
         if DEBUG:
             nav_selector = NAV_DATA
@@ -232,14 +231,12 @@ class SplitTool(object):
         pt = title
         if more_text:
             pt = title + '-' + more_text
-
-        data = self._find_a(html, url, pt, nav_selector, top_k)
-        for d in data:
+        html = self.driver.page_source
+        url_data_list = self._find_a(html, url, pt, nav_selector, top_k)
+        for d in url_data_list:
             if set_default_css_selector:
-                d.append(default_css_selector)
-            else:
-                d.append(None)
-        return (data, title, main_page_url, is_complex_page)
+                d[3] = default_css_selector
+        return (url_data_list, title, main_page_url, is_complex_page)
 
     def write2file(self, data, title, main_page_url, u):
         if data is None or len(data) == 0:
@@ -263,6 +260,7 @@ class SplitTool(object):
                   index=None, header=None)
 
     def html_split(self, main_url, u):
+        # 主入口
         self.main_url = main_url
         data, title, main_page_url, is_complex_page = self.open_url(main_url)
         if is_complex_page:
